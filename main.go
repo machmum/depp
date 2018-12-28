@@ -2,12 +2,16 @@ package main
 
 import (
 	"github.com/labstack/echo"
+	"github.com/labstack/gommon/log"
 	"fmt"
 	"github.com/labstack/echo/middleware"
+	"github.com/sirupsen/logrus"
 	"net/http"
+	"github.com/go-playground/validator"
+	"time"
 )
 
-func main() {
+func main(){
 	e := echo.New()
 
 	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
@@ -18,7 +22,21 @@ func main() {
 		return c.JSON(http.StatusOK, true)
 	})
 
+	logrus.WithFields(log.Fields{
+		"at": time.Now().Format("2006-01-02 15:04:05"),
+	})
+
 	e.Logger.Fatal(e.Start(":9000"))
+}
+
+// CustomValidator holds custom validator
+type CustomValidator struct {
+	V *validator.Validate
+}
+
+// Validate validates the request
+func (cv *CustomValidator) Validate(i interface{}) error {
+	return cv.V.Struct(i)
 }
 
 func AuthAPI() echo.MiddlewareFunc {
