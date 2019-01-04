@@ -5,11 +5,14 @@ import (
 	"github.com/go-redis/redis"
 	"github.com/machmum/depp/config"
 	"encoding/json"
-	"github.com/labstack/gommon/log"
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
+var client *redis.Client
+
 type (
+	//Client struct{}
+
 	NewConfig struct {
 		*config.Configuration
 	}
@@ -28,7 +31,7 @@ func NewRedisConfig(cfg *config.Configuration) NewConfig {
 	}
 }
 
-func Open(cfg NewConfig) (client NewClient, err error) {
+func Open(cfg NewConfig) (c NewClient, err error) {
 	rdb := redis.NewClient(&redis.Options{
 		Addr:         cfg.Redis.Host + cfg.Redis.Port,
 		Password:     cfg.Redis.Password,
@@ -40,12 +43,12 @@ func Open(cfg NewConfig) (client NewClient, err error) {
 
 	_, err = rdb.Ping().Result()
 	if err != nil {
-		return client, err
+		return c, err
 	}
 
-	client = NewClient{rdb}
+	c = NewClient{rdb}
 
-	return client, nil
+	return c, nil
 }
 
 func Open2(cfg NewConfig) (client *redis.Client, err error) {
@@ -67,16 +70,14 @@ func Open2(cfg NewConfig) (client *redis.Client, err error) {
 }
 
 // Set redis
-func SetRedis(key string, data interface{}, expiration int) (err error) {
-	exp := time.Duration(expiration) * time.Second
-	logrus.Fatal(data)
+func SetRedis(key string, data interface{}, expiration int, cfg *redis.Client) (err error) {
+
 	//for i := range data {
 	//	if data[i], err = json.Marshal(data[i]); err != nil {
 	//		err = handleError(err)
 	//		return
 	//	}
 	//}
-	log.Fatal(exp)
 
 	// write redis
 	//if _, err = client.HMSet(key, data).Result(); err != nil {
@@ -121,6 +122,7 @@ func handleError(err error) (e error) {
 	//	e = errors.New("redis went wrong [gateway]")
 	//	return
 	//}
+	log.Println("something")
 
 	return err
 }

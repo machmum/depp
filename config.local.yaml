@@ -10,9 +10,14 @@ redis:
   host: 127.0.0.1
   port: :6379
   password: ZjY0ZWM0MDVhYjM2NmY4MTIzNGQ5OTFi
-  expire_token:
+  lifetime:
     access: 1209600
     refresh: 1209600
+    apps: 45
+  prefix:
+    access: depp_access
+    refresh: depp_refresh
+    apps: dep_apps
 
 server:
   port: :8080

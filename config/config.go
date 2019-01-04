@@ -63,8 +63,14 @@ type RDB struct {
 	Host     string `yaml:"host"`
 	Port     string `yaml:"port,omitempty"`
 	Password string `yaml:"password,omitempty"`
-	ExpireToken struct {
+	Lifetime struct {
 		Access  int `yaml:"access"`
 		Refresh int `yaml:"refresh"`
-	} `yaml:"expire_token"`
+		Apps    int `yaml:"apps"`
+	} `yaml:"lifetime"`
+	Prefix struct {
+		Access  string `yaml:"access"`
+		Refresh string `yaml:"refresh"`
+		Apps    string `yaml:"apps"`
+	} `yaml:"prefix"`
 }
