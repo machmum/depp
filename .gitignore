@@ -1,0 +1,18 @@
+# config
+config.json
+gin.log
+
+# vendor
+Gopkg.lock
+vendor/*
+
+# unused file
+.DS_STORE
+*/.DS_STORE
+._*
+.htaccess
+
+.idea/
+
+# dockerfile
+Dockerfile
