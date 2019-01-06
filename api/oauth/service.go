@@ -9,7 +9,8 @@ import (
 	"time"
 	"github.com/gin-gonic/gin/json"
 	"errors"
-	"golang.org/x/oauth2"
+	"github.com/machmum/depp/utl/secure"
+	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -43,6 +44,15 @@ func NewHTTP(cfg NewConfig, er *echo.Group) error {
 	g := er.Group("/oauth")
 	g.POST("/token", cfg.RequestToken)
 
+	return nil
+}
+
+//type NewToken struct {
+//	*secure.Token
+//}
+
+func zz() error {
+	log.Fatal("test")
 	return nil
 }
 
@@ -89,16 +99,25 @@ func (cfg NewConfig) RequestToken(c echo.Context) (err error) {
 			// do check refresh token first
 			//
 
+			// do get token
+			//var token NewToken
+			//log.Println(token)
+			token := secure.SetToken()
+			if err != nil {
+				return err
+			}
+
+			log.Fatalln(token)
 
 		}
 
-			c.JSON(http.StatusOK, server.NewResponse{
-				Meta: server.ResponseMeta{
-					Code:    http.StatusOK,
-					Message: "",
-				},
-				Data: result,
-			})
+		c.JSON(http.StatusOK, server.NewResponse{
+			Meta: server.ResponseMeta{
+				Code:    http.StatusOK,
+				Message: "",
+			},
+			Data: result,
+		})
 	}
 
 	return errors.New("something error occurred")
