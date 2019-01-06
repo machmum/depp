@@ -17,9 +17,11 @@ type NewResponse struct {
 
 // not used
 func ResponseFail(c echo.Context, err error) error {
-	return c.JSON(http.StatusOK, ResponseMeta{
-		Code:    http.StatusNotFound,
-		Message: err.Error(),
+	return c.JSON(http.StatusOK, NewResponse{
+		Meta: ResponseMeta{
+			Code:    http.StatusNotFound,
+			Message: err.Error(),
+		},
 	})
 }
 

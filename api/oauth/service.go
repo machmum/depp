@@ -7,10 +7,11 @@ import (
 	"github.com/machmum/depp/utl/server"
 	"github.com/machmum/depp/utl/models"
 	"time"
-	"github.com/gin-gonic/gin/json"
 	"errors"
 	"github.com/machmum/depp/utl/secure"
 	log "github.com/sirupsen/logrus"
+	"encoding/json"
+	"fmt"
 )
 
 var (
@@ -21,6 +22,14 @@ var (
 type (
 	NewConfig struct {
 		*config.Configuration
+	}
+
+	NewToken struct {
+		AccessToken   string        `json:"access_token"`
+		TokenType     string        `json:"token_type,omitempty"`
+		RefreshToken  string        `json:"refresh_token,omitempty"`
+		ExpiryAccess  time.Duration `json:"expiry_access,omitempty"`
+		ExpiryRefresh time.Duration `json:"expiry_refresh,omitempty"`
 	}
 )
 
@@ -47,10 +56,6 @@ func NewHTTP(cfg NewConfig, er *echo.Group) error {
 	return nil
 }
 
-//type NewToken struct {
-//	*secure.Token
-//}
-
 func zz() error {
 	log.Fatal("test")
 	return nil
@@ -69,46 +74,71 @@ func (cfg NewConfig) RequestToken(c echo.Context) (err error) {
 		return
 	}
 
-	//result, err := depp.GetChannelVersion(cred, cfg.Cfg.Conn)
-	result, err := cred.GetChannelVersion2(cfg.Conn.Mysql)
+	// check token
+	var channel depp.ChannelVersion
+
+	key := "channel_" + cred.Username
+	rds, err := cfg.Conn.Redis.HGetAll(cfg.Redis.Prefix.Apps).Result()
 	if err != nil {
 		return err
 	}
 
-	// set to redis
-	if result.ApiChannelID != 0 {
+	if len(rds) != 0 {
+		if err := json.Unmarshal([]byte(rds[key]), &channel); err != nil {
+			return err
+		}
 
-		bytes, err := json.Marshal(result)
+		fmt.Println(channel)
+
+	} else {
+		channel, err = cred.GetChannelVersion(cfg.Conn.Mysql)
 		if err != nil {
 			return err
 		}
 
-		// write redis
-		if _, err = cfg.Conn.Redis.HMSet(cfg.Redis.Prefix.Apps, map[string]interface{}{"channel_" + result.Username: bytes}).Result(); err != nil {
-			return err
-		}
-
-		// set expire redis
-		duration := time.Duration(cfg.Redis.Lifetime.Apps) * time.Second
-		if _, err = cfg.Conn.Redis.Expire(cfg.Redis.Prefix.Apps, duration).Result(); err != nil {
-			return err
-		}
-
-		if cred.GrantType == GrantAccess {
-			//
-			// do check refresh token first
-			//
-
-			// do get token
-			//var token NewToken
-			//log.Println(token)
-			token := secure.SetToken()
+		if channel.ApiChannelID != 0 {
+			bytes, err := json.Marshal(channel)
 			if err != nil {
 				return err
 			}
 
-			log.Fatalln(token)
+			// write redis
+			if _, err = cfg.Conn.Redis.HMSet(cfg.Redis.Prefix.Apps, map[string]interface{}{key: bytes}).Result(); err != nil {
+				return err
+			}
 
+			// set expire redis
+			duration := time.Duration(cfg.Redis.Lifetime.Apps) * time.Second
+			if _, err = cfg.Conn.Redis.Expire(cfg.Redis.Prefix.Apps, duration).Result(); err != nil {
+				return err
+			}
+		}
+	}
+
+	// set token
+	if cred.GrantType == GrantAccess {
+		//
+		// do check refresh token first
+		//
+
+		// do get token
+		token, err := secure.SetToken(cfg.Redis.Lifetime.Access)
+		if err != nil {
+			return err
+		}
+
+		newtoken := NewToken{
+			AccessToken:   token.AccessToken,
+			RefreshToken:  token.RefreshToken,
+			TokenType:     token.TokenType,
+			ExpiryRefresh: token.ExpiryRefresh,
+			ExpiryAccess:  token.ExpiryAccess,
+		}
+
+		// save token to redis
+		err = setRedis(cfg, newtoken)
+		if err != nil {
+			return err
 		}
 
 		c.JSON(http.StatusOK, server.NewResponse{
@@ -116,65 +146,69 @@ func (cfg NewConfig) RequestToken(c echo.Context) (err error) {
 				Code:    http.StatusOK,
 				Message: "",
 			},
-			Data: result,
+			Data: map[string]interface{}{
+				"access_token":  newtoken.AccessToken,
+				"refresh_token": newtoken.RefreshToken,
+				"token_type":    newtoken.TokenType,
+				"expire_in":     newtoken.ExpiryAccess / time.Second,
+			},
 		})
+
+		return nil
 	}
 
 	return errors.New("something error occurred")
 }
 
-//func generateToken(p map[string]string) (result interface{}, err error) {
-//	// generate token
-//	at := common.GenerateRandomUuid()
-//	rt := common.GenerateRandomUuid()
-//	start := time.Now().Unix()
-//
-//	// prepare access token for redis
-//	atPrefix := cons.AccessTokenPrefix + at
-//	dataAt := map[string]interface{}{
-//		"token": map[string]interface{}{
-//			"refresh_token": rt,
-//			"token_type":    cons.TokenType,
-//			"expire_in":     cons.AccessTokenExpire,
-//			"start_time":    start,
-//		},
-//	}
-//
-//	// prepare refresh token for redis
-//	rtPrefix := cons.RefreshTokenPrefix + rt
-//	dataRt := map[string]interface{}{
-//		"token": map[string]interface{}{
-//			"access_token": at,
-//			"token_type":   cons.TokenType,
-//			"username":     r.Username,
-//			"password":     r.Password,
-//			"expire_in":    cons.RefreshTokenExpire,
-//			"start_time":   start,
-//		},
-//	}
-//
-//	// delete old access_token
-//	if p["at"] != "" {
-//		common.DeleteRedis(p["ct"], "csrf_token")
-//		common.DeleteRedis(p["at"], "token")
-//		common.RenameRedis(p["rt"], rtPrefix)
-//	}
-//
-//	// insert redis
-//	if err = common.SetRedis(atPrefix, dataAt, cons.AccessTokenExpire); err != nil {
-//		return
-//	}
-//	if err = common.SetRedis(rtPrefix, dataRt, cons.RefreshTokenExpire); err != nil {
-//		return
-//	}
-//
-//	// populate data response
-//	result = GenerateTokenStruct{
-//		AccessToken:  at,
-//		TokenType:    cons.TokenType,
-//		ExpireIn:     cons.AccessTokenExpire,
-//		RefreshToken: rt,
-//	}
-//
-//	return
-//}
+func setRedis(cfg NewConfig, t NewToken) error {
+	var err error
+
+	refresh, err := json.Marshal(map[string]interface{}{
+		"access_token": t.AccessToken,
+		"token_type":   t.TokenType,
+		"expires_in":   t.ExpiryRefresh / time.Second,
+	})
+	if err != nil {
+		return err
+	}
+
+	access, err := json.Marshal(map[string]interface{}{
+		"refresh_token": t.RefreshToken,
+		"token_type":    t.TokenType,
+		"expires_in":    t.ExpiryAccess / time.Second,
+	})
+	if err != nil {
+		return err
+	}
+
+	// write redis
+	key := cfg.Redis.Prefix.Refresh + "_" + t.RefreshToken
+	expired := t.ExpiryRefresh - (3 * time.Second)
+	if _, err := cfg.Conn.Redis.HMSet(key, map[string]interface{}{
+		"token": refresh,
+	}).Result(); err != nil {
+		return err
+	}
+
+	if _, err := cfg.Conn.Redis.Expire(key, expired).Result(); err != nil {
+		log.Fatal("masuk")
+		return err
+	}
+
+	key = cfg.Redis.Prefix.Access + "_" + t.AccessToken
+	expired = t.ExpiryAccess - (3 * time.Second)
+	if _, err := cfg.Conn.Redis.HMSet(key, map[string]interface{}{
+		"token": access,
+	}).Result(); err != nil {
+		return err
+	}
+
+	// set expire redis
+
+	if _, err := cfg.Conn.Redis.Expire(key, expired).Result(); err != nil {
+		log.Fatal("masuk")
+		return err
+	}
+
+	return nil
+}
