@@ -27,6 +27,17 @@ var (
 	ErrFailedConnRedis = errors.New("Failed connecting to redis")
 )
 
+type GormLogger struct{}
+
+func (*GormLogger) Print(v ...interface{}) {
+	if v[0] == "sql" {
+		log.WithFields(log.Fields{"module": "gorm", "type": "sql"}).Print(v[3])
+	}
+	if v[0] == "log" {
+		log.WithFields(log.Fields{"module": "gorm", "type": "log"}).Print(v[2])
+	}
+}
+
 // use new model
 func Start(cfg *config.Configuration) {
 	// Open a connection
@@ -38,6 +49,11 @@ func Start(cfg *config.Configuration) {
 	}
 	defer db.Close()
 
+	// configure custom log for gorm
+	db.SetLogger(gorm.Logger{log.New()})
+	db.LogMode(cfg.Debug)
+
+	// set db
 	cfg.Conn.Mysql = db
 
 	// Open redis connection

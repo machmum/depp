@@ -11,8 +11,8 @@ redis:
   port: :6379
   password: ZjY0ZWM0MDVhYjM2NmY4MTIzNGQ5OTFi
   lifetime:
-    access: 120
-    refresh: 120
+    access: 600
+    refresh: 600
     apps: 86400
   prefix:
     access: depp_access

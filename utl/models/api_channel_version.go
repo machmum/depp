@@ -42,15 +42,11 @@ func GetChannelVersion3(cred Credentials, db *gorm.DB) (result ChannelVersion, e
 
 func (cred Credentials) GetChannelVersion(db *gorm.DB) (result ChannelVersion, err error) {
 
-	if err := db.Raw("select api_channel_id, username, password from api_channel_version where username = ?", cred.Username).Scan(&result).Error; err != nil {
-		//fmt.Println(reflect.TypeOf(err))
-		return result, err
+	q := "select api_channel_id, username, password from api_channel_version where username = ?"
+
+	if err = db.Raw(q, cred.Username).Scan(&result).Error; err != nil {
+		return
 	}
 
-	return result, nil
-	//db.Debug().Raw("select * from api_channel_version where username = ?", cred.Username).Scan(&result)
-	//db.LogMode(true)
-
-	//return result
-
+	return
 }
