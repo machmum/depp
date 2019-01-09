@@ -34,3 +34,4 @@ func MiddlewareLogging(next echo.HandlerFunc) echo.HandlerFunc {
 		return next(c)
 	}
 }
+
