@@ -26,6 +26,7 @@ import (
 var (
 	ErrFailedConnMysql = errors.New("Failed connecting to database")
 	ErrFailedConnRedis = errors.New("Failed connecting to redis")
+	ErrMethodNotFound  = errors.New("method not found !")
 )
 
 // use new model
@@ -119,7 +120,7 @@ func customHTTPErrorHandler(err error, c echo.Context) {
 		if ok {
 			err = errors.New(parseError.Error())
 		} else {
-			err = errors.New("method not found !")
+			err = ErrMethodNotFound
 		}
 	}
 
