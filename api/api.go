@@ -19,6 +19,7 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/machmum/depp/utl/redis"
 	log "github.com/sirupsen/logrus"
+	"github.com/machmum/depp/utl/logger"
 )
 
 // Custom errors
@@ -26,17 +27,6 @@ var (
 	ErrFailedConnMysql = errors.New("Failed connecting to database")
 	ErrFailedConnRedis = errors.New("Failed connecting to redis")
 )
-
-type GormLogger struct{}
-
-func (*GormLogger) Print(v ...interface{}) {
-	if v[0] == "sql" {
-		log.WithFields(log.Fields{"module": "gorm", "type": "sql"}).Print(v[3])
-	}
-	if v[0] == "log" {
-		log.WithFields(log.Fields{"module": "gorm", "type": "log"}).Print(v[2])
-	}
-}
 
 // use new model
 func Start(cfg *config.Configuration) {
@@ -64,7 +54,6 @@ func Start(cfg *config.Configuration) {
 		customLogDebug(cfg, err) // log real error
 		panic(ErrFailedConnRedis)
 	}
-	//defer cfg.Conn.Redis.Close()
 
 	cfg.Conn.Redis = rdb.Client
 
@@ -90,12 +79,18 @@ func Start(cfg *config.Configuration) {
 	// request validator
 	e.Validator = &server.CustomValidator{V: validator.New()}
 
+	// register
+	// new logger
+	logger := logger.New()
+
 	// register routes
 	// group
 	v1 := e.Group("/v1")
 
 	// execute routes
-	oauth.NewHTTP(oauth.NewService(cfg), v1)
+	//oauth.NewHTTP(a, v1)
+	oauth.NewHTTP(oauth.NewService(cfg, logger), v1)
+	//oauth.NewHTTP(oauth.NewService(cfg), v1)
 	//auth.NewHTTP(auth.NewService(cfg), v1)
 
 	// prepare server
