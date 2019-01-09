@@ -12,10 +12,13 @@ import (
 	log "github.com/sirupsen/logrus"
 	"encoding/json"
 	"github.com/machmum/depp/utl/logger"
-	"reflect"
 )
 
 var (
+	ErrInvalidToken    = "token invalid or expired"
+	ErrNotFoundToken   = "token not found"
+	ErrNotFoundChannel = "channel not found"
+
 	GrantAccess  = "password"
 	GrantRefresh = "refresh"
 	Count        int
@@ -95,18 +98,15 @@ func (s Service) RequestToken(c echo.Context) (err error) {
 		"password": channel.Password,
 	}
 
+	token := secure.NewToken()
+
 	// set token
 	if cred.GrantType == GrantAccess {
 		//
 		// do check refresh token first
 		//
 
-		// do get token
-		token := secure.NewToken()
-
-		log.Fatalln(reflect.TypeOf(token))
-
-		err = token.SetToken2(lifetime, raw)
+		err = token.SetToken(lifetime, raw)
 		if err != nil {
 			return s.LogError(err)
 		}
@@ -122,7 +122,7 @@ func (s Service) RequestToken(c echo.Context) (err error) {
 		}
 
 		// save token to redis
-		err = s.setRedis(newtoken)
+		err = s.setTokenRedis(newtoken)
 		if err != nil {
 			return s.LogError(err)
 		}
@@ -145,17 +145,19 @@ func (s Service) RequestToken(c echo.Context) (err error) {
 
 	// refresh token
 	if cred.GrantType == GrantRefresh {
-		token := secure.NewToken()
 
 		// get token from redis
 		oldkey = s.Config.Redis.Prefix.Refresh + cred.RefreshToken
-		tkn, err := s.Config.Conn.Redis.HGetAll(oldkey).Result()
+		trds, err := s.Config.Conn.Redis.HGetAll(oldkey).Result()
 		if err != nil {
 			return s.LogError(err)
 		}
 
-		if len(tkn) != 0 {
-			if err := json.Unmarshal([]byte(tkn["token"]), &token); err != nil {
+		if len(trds) == 0 {
+			return errors.New(ErrNotFoundToken)
+
+		} else {
+			if err := json.Unmarshal([]byte(trds["token"]), &token); err != nil {
 				return s.LogError(err)
 			}
 
@@ -164,7 +166,7 @@ func (s Service) RequestToken(c echo.Context) (err error) {
 				oldtoken := token.AccessToken
 
 				// set new token
-				err = token.SetToken2(lifetime, raw)
+				err = token.SetToken(lifetime, raw)
 				if err != nil {
 					return s.LogError(err)
 				}
@@ -192,7 +194,7 @@ func (s Service) RequestToken(c echo.Context) (err error) {
 				}
 
 				// save token to redis
-				err = s.setRedis(newtoken)
+				err = s.setTokenRedis(newtoken)
 				if err != nil {
 					return s.LogError(err)
 				}
@@ -213,18 +215,15 @@ func (s Service) RequestToken(c echo.Context) (err error) {
 				return nil
 
 			} else {
-				return errors.New("token invalid or expired")
+				return errors.New(ErrInvalidToken)
 			}
-
-		} else {
-			return errors.New("token not found")
 		}
 	}
 
-	return errors.New("something error occurred")
+	return nil
 }
 
-func (s Service) setRedis(t NewToken) error {
+func (s Service) setTokenRedis(t NewToken) error {
 	var err error
 
 	refresh, err := json.Marshal(map[string]interface{}{
@@ -276,8 +275,6 @@ func (s Service) setRedis(t NewToken) error {
 
 func (s Service) setChannel(cred *depp.Credentials) (channel depp.ChannelVersion, err error) {
 
-	var failedGetChannel = "failed to get channel"
-
 	key = "channel_" + cred.Username
 	rds, err := s.Config.Conn.Redis.HGetAll(s.Config.Redis.Prefix.Apps).Result()
 	if err != nil {
@@ -300,7 +297,7 @@ func (s Service) setChannel(cred *depp.Credentials) (channel depp.ChannelVersion
 		}
 
 		if channel.ApiChannelID == 0 {
-			err = errors.New(failedGetChannel)
+			err = errors.New(ErrNotFoundChannel)
 			return channel, err
 
 		} else {
@@ -330,7 +327,6 @@ func (s Service) LogError(err error) error {
 		"oauth",
 		"failed in oauth/service",
 		err,
-		nil,
 	)
 
 	return err
