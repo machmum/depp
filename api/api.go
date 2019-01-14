@@ -91,8 +91,6 @@ func Start(cfg *config.Configuration) {
 	// execute routes
 	//oauth.NewHTTP(a, v1)
 	oauth.NewHTTP(oauth.NewService(cfg, logger), v1)
-	//oauth.NewHTTP(oauth.NewService(cfg), v1)
-	//auth.NewHTTP(auth.NewService(cfg), v1)
 
 	// prepare server
 	s := &http.Server{
