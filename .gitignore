@@ -10,7 +10,6 @@ vendor/*
 .DS_STORE
 */.DS_STORE
 ._*
-.htaccess
 
 .idea/
 
